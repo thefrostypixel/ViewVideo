@@ -169,7 +169,7 @@
         </div>
         <script>
             let $ = q => document.querySelector(q);
-            let time = s => `${Math.floor((s || 0) / 60)}:${Math.floor((s || 0) % 60).toString().padStart(2, "0")}`;
+            let time = s => `${s > 3600 ? `${Math.floor(s / 3600 || 0)}:${Math.floor((s / 60) % 60 || 0).toString().padStart(2, "0")}` : Math.floor(s / 60 || 0)}:${Math.floor(s % 60 || 0).toString().padStart(2, "0")}`;
             let history = [];
             try {
                 history = JSON.parse(localStorage.getItem("ViewVideo")) || history;
@@ -220,9 +220,6 @@
                 if (file) {
                     URL.revokeObjectURL(url);
                     $("#video-container").removeAttribute("hidden");
-                    $("video").pause();
-                    $("video").ontimeupdate = () => {};
-                    $("video").src = url = URL.createObjectURL(file);
                     let name = file.name.match(/.*(?=\.)/)[0];
                     let id = name.replace(/\s*\d*\s*$/, "") || Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", await file.slice(0, 1048576).arrayBuffer()))).map(b => b.toString(16).toUpperCase().padStart(2, "0")).join("");
                     // let episode = name.match(/\d*(?=\s*$)/, "");
@@ -236,8 +233,10 @@
                         localStorage.setItem("ViewVideo", JSON.stringify(history));
                     } catch (e) {}
                     showHistory(true);
-                    $("video").onpause();
-                    ($("video").ontimeupdate = () => {
+                    if ("mediaSession" in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({title: name});
+                    }
+                    $("video").onloadeddata = $("video").ontimeupdate = () => {
                         $("#playing").innerText = `Playing: ${name} (${time($("video").currentTime)})`;
                         $("#progress-text").innerHTML = `${time($("video").currentTime)} / ${time($("video").duration)}`;
                         $("#progressed-bar").style.width = `${$("video").currentTime / $("video").duration * 100}%`;
@@ -245,19 +244,26 @@
                         try {
                             localStorage.setItem("ViewVideo", JSON.stringify(history));
                         } catch (e) {}
-                    })();
+                    };
+                    $("video").src = url = URL.createObjectURL(file);
+                    $("video").onpause();
                 }
             };
             let hideControlsTimeout = undefined;
+            let showControls = () => {
+                clearTimeout(hideControlsTimeout);
+                $("#video-container").removeAttribute("hide-controls");
+                if (!paused && !draggingProgress) {
+                    hideControlsTimeout = setTimeout(() => $("#video-container").setAttribute("hide-controls", ""), 2000);
+                }
+            };
             let play = () => {
                 $("video").play();
-                clearTimeout(hideControlsTimeout);
-                hideControlsTimeout = setTimeout(() => $("#video-container").setAttribute("hide-controls", ""), 3000);
+                showControls();
             };
             let pause = () => {
                 $("video").pause();
-                clearTimeout(hideControlsTimeout);
-                $("#video-container").removeAttribute("hide-controls");
+                showControls();
             };
             $("video").onplay = () => {
                 paused = false;
@@ -293,17 +299,24 @@
                 }
             };
             document.onkeyup = e => {
-                if (e.code == "ArrowRight") {
-                    $("video").currentTime += 5 * (e.shiftKey ? 2 : 1) * (e.ctrlKey ? 6 : 1);
-                } else if (e.code == "ArrowLeft") {
-                    $("video").currentTime -= 5 * (e.shiftKey ? 2 : 1) * (e.ctrlKey ? 6 : 1);
-                } else if (e.code == "Space") {
-                    if (paused) {
-                        $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m4 1v18m12 -18v18"></path></svg>`;
-                        play();
-                    } else {
-                        $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m2.2 1l15.6 9l-15.6 9z"></path></svg>`;
-                        pause();
+                if ($("video").readyState > HTMLMediaElement.HAVE_METADATA) {
+                    if (e.key == " ") {
+                        if (paused) {
+                            $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m4 1v18m12 -18v18"></path></svg>`;
+                            play();
+                        } else {
+                            $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m2.2 1l15.6 9l-15.6 9z"></path></svg>`;
+                            pause();
+                        }
+                    } else if (e.key == "ArrowRight") {
+                        $("video").currentTime += 5 * (e.shiftKey ? 2 : 1) * (e.ctrlKey ? 6 : 1);
+                        showControls();
+                    } else if (e.key == "ArrowLeft") {
+                        $("video").currentTime -= 5 * (e.shiftKey ? 2 : 1) * (e.ctrlKey ? 6 : 1);
+                        showControls();
+                    } else if (!isNaN(e.key)) {
+                        $("video").currentTime = $("video").duration * e.key / 10;
+                        showControls();
                     }
                 }
             };
@@ -314,8 +327,8 @@
                     $("#video-container").removeAttribute("hide-controls");
                 }
             };
-            $("#file").addEventListener("change", e => loadFile(e.target.files[0]));
-            $("#drop").addEventListener("click", () => $("#file").click());
+            $("#file").onchange = e => loadFile(e.target.files[0]);
+            $("#drop").onclick = () => $("#file").click();
             document.ondragover = e => e.preventDefault();
             document.ondrop = e => {
                 e.preventDefault();
