@@ -232,9 +232,10 @@
                     try {
                         localStorage.setItem("ViewVideo", JSON.stringify(history));
                     } catch (e) {}
+                    $("title").innerText = `${name} (ViewVideo)`;
                     showHistory(true);
                     if ("mediaSession" in navigator) {
-                        navigator.mediaSession.metadata = new MediaMetadata({title: name});
+                        navigator.mediaSession.metadata = new MediaMetadata({title: name, artist: "ViewVideo"});
                     }
                     $("video").onloadeddata = $("video").ontimeupdate = () => {
                         $("#playing").innerText = `Playing: ${name} (${time($("video").currentTime)})`;
