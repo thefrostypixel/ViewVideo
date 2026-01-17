@@ -152,7 +152,7 @@
         <div id="drop">Select or drop a video file</div>
         <div id="history" hidden><button id="history-toggle"></button><span id="playing"></span><div id="history-list"></div></div>
         <div id="video-container" onclick="$('#controls').contains(event.target) || $('video')[$('video').paused ? 'play' : 'pause']();" hidden>
-            <video preload="metadata" x-webkit-airplay="allow"></video>
+            <video autoplay preload="metadata" x-webkit-airplay="allow"></video>
             <span id="controls">
                 <div id="progress-bar"><div id="progressed-bar"></div></div>
                 <span id="controls-buttons">
@@ -250,6 +250,7 @@
                     $("video").onpause();
                 }
             };
+            let webkitFullscreenDisabled = NaN;
             let hideControlsTimeout = undefined;
             let showControls = () => {
                 clearTimeout(hideControlsTimeout);
@@ -261,6 +262,9 @@
             let play = () => {
                 $("video").play();
                 showControls();
+                if ($("video").webkitDisplayingFullscreen == false) {
+                    webkitFullscreenDisabled = performance.now();
+                }
             };
             let pause = () => {
                 $("video").pause();
@@ -277,7 +281,11 @@
                 }
             };
             $("video").onpause = () => {
-                if (!draggingProgress) {
+                if ($("video").webkitDisplayingFullscreen && performance.now() - webkitFullscreenDisabled < 100) {
+                    paused = false;
+                    $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m4 1v18m12 -18v18"></path></svg>`;
+                    play();
+                } else if (!draggingProgress) {
                     paused = true;
                     $("#control-play").innerHTML = `<svg viewBox="0 0 20 20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m2.2 1l15.6 9l-15.6 9z"></path></svg>`;
                     pause();
@@ -335,7 +343,7 @@
                 e.preventDefault();
                 loadFile(e.dataTransfer.files[0]);
             };
-            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            if (/Mobile|iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
                 $("#controls").setAttribute("hidden", "");
                 $("video").setAttribute("controls", "");
             }
