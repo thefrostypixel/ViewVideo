@@ -326,6 +326,12 @@
                     } else if (!isNaN(e.key)) {
                         $("video").currentTime = $("video").duration * e.key / 10;
                         showControls();
+                    } else if (e.key == "p") {
+                        document.pictureInPictureElement ? document.exitPictureInPicture() : $('video').requestPictureInPicture();
+                    } else if (e.key == "t") {
+                        $('body').toggleAttribute('theater');
+                    } else if (e.key == "f") {
+                        document.fullscreenElement ? document.exitFullscreen() : $('#video-container').requestFullscreen();
                     }
                 }
             };
