@@ -334,6 +334,9 @@
                         document.fullscreenElement ? document.exitFullscreen() : $('#video-container').requestFullscreen();
                     }
                 }
+                if (e.key == "s") {
+                    document.querySelector("#drop").click();
+                }
             };
             $("video").onmousemove = () => {
                 if (!paused && !draggingProgress) {
